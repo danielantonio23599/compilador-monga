@@ -1,76 +1,6 @@
-"""
-
- Linguagem Monga
-
-    Gramatica::
-
-    program : { definition }
-
-    definition : def-variable | def-function | def-type
-
-    def-variable : VAR ID ':' type ';'
-
-    type : ID
-
-    def-type : TYPE ID '=' typedesc ;
-
-    typedesc : ID | '[' typedesc ']' | '{' { field } '}'
-
-    field : ID ':' type ';' ;
-
-    def-function : FUNCTION ID '(' parameters ')' [':' type] block
-
-    parameters : [ parameter { ',' parameter } ]
-
-    parameter : ID ':' type
-
-    block : '{' { def-variable } { statement } '}'
-
-    statement : IF cond block [ ELSE block ]
-              | WHILE cond block
-              | var '=' exp ';'
-              | RETURN [ exp ] ';'
-              | call ';'
-              | '@' exp ';'
-              | block
-
-    var : ID | exp '[' exp ']' | exp '.' ID
-
-    exp : NUMERAL
-        | var
-        | '(' exp ')'
-        | call
-        | exp AS type
-        | NEW type [ '[' exp ']' ]
-        | '-' exp
-        | exp '+' exp
-        | exp '-' exp
-        | exp '*' exp
-        | exp '/' exp
-        | cond '?' exp ':' exp
-
-    cond :  '(' cond ')'
-        | exp '==' exp
-        | exp '~=' exp
-        | exp '<=' exp
-        | exp '>=' exp
-        | exp '<' exp
-        | exp '>' exp
-        | '!' cond
-        | cond '&&' cond
-        | cond '||' cond
-
-    call : ID '(' explist ')'
-
-    explist : [ exp { ',' exp } ]
-
-    Comentarios::
-
-    iniciam com # ate o fim da linha
-
-"""
-
 from lexico import TipoToken as tt, Token, Lexico
+from tabela import TabelaSimbolos
+from semantico import Semantico
 
 class Sintatico:
 
@@ -86,12 +16,15 @@ class Sintatico:
         if not self.lex is None:
             print('ERRO: Já existe um arquivo sendo processado.')
         else:
+            self.deuErro = False
             self.lex = Lexico(nomeArquivo)
             self.lex.abreArquivo()
             self.tokenAtual = self.lex.getToken()
 
             # inicio reconhecimento do fonte
-            self.F()
+            self.tabsimb = TabelaSimbolos()
+            self.semantico = Semantico()
+            self.program()
             self.consome( tt.FIMARQ )
             # fim do reconhecimento do fonte
 
@@ -115,8 +48,8 @@ class Sintatico:
             self.deuErro = True
             (const, msg) = token
             print('ERRO DE SINTAXE [linha %d]: era esperado "%s" mas veio "%s"'
-               % (self.tokenAtual.linha, msg, self.tokenAtual.lexema))
-            #quit()
+                  % (self.tokenAtual.linha, msg, self.tokenAtual.lexema))
+            # quit()
             procuraTokenDeSincronismo = True
             while procuraTokenDeSincronismo:
                 self.tokenAtual = self.lex.getToken()
@@ -134,83 +67,390 @@ class Sintatico:
             # so continua, consumindo e consumindo...
             pass
 
+    def salvaLexema(self):
+        return self.tokenAtual.lexema
+
+    def salvaLinha(self):
+        return self.tokenAtual.linha
+
+    def testaVarNaoDeclarada(self, var, linha):
+        if self.deuErro:
+            return
+        if not self.tabsimb.existeIdent(var):
+            self.deuErro = True
+            msg = "Variavel " + var + " nao declarada."
+            self.semantico.erroSemantico(msg, linha)
+            quit()
+
+
     ##################################################################
     # Segue uma funcao para cada variavel da gramatica
     ##################################################################
 
-    def F(self):
-        self.C()
-        self.Rf()
-
-    def Rf(self):
-        if self.tokenEsperadoEncontrado( tt.FIMARQ ):
+    def program(self):
+        self.definition()
+        if self.tokenEsperadoEncontrado(tt.FIMARQ):
             pass
         else:
-            self.C()
-            self.Rf()
+            self.program()
 
-    def C(self):
-        if self.tokenEsperadoEncontrado( tt.READ ):
-            self.R()
-        elif self.tokenEsperadoEncontrado( tt.PRINT ):
-            self.P()
+    def definition(self):
+        if self.tokenEsperadoEncontrado(tt.VAR):
+          self.variable()
+        elif self.tokenEsperadoEncontrado(tt.FUNCTION):
+            self.function()
+
+    def variable(self):
+        self.consome(tt.VAR)
+        var = self.salvaLexema()
+        self.consome(tt.ID)
+        self.consome(tt.DOISPTO)
+        tipo = self.type()
+        self.consome(tt.TYPE)
+        self.consome(tt.PTOVIRG)
+        if not self.tabsimb.existeIdent(var):
+            if tipo == 'int':
+                self.tabsimb.declaraIdent(var, 0)
+            elif tipo == 'float':
+                self.tabsimb.declaraIdent(var, 0.0)
+            else: self.tabsimb.declaraIdent(var, None);
+
+    def function(self):
+        self.consome(tt.FUNCTION)
+        var = self.salvaLexema()
+        self.consome(tt.ID)
+        self.consome(tt.OPENPAR)
+        self.parameters()
+        self.consome(tt.CLOSEPAR)
+        if self.tokenEsperadoEncontrado(tt.DOISPTO):
+            self.consome(tt.DOISPTO)
+            tipo = self.type()
+            self.consome(tt.TYPE)
+            if not self.tabsimb.existeIdent(var):
+                if tipo == 'int':
+                    self.tabsimb.declaraIdent(var, 0)
+                elif tipo == 'float':
+                    self.tabsimb.declaraIdent(var, 0.0)
+                else:
+                    self.tabsimb.declaraIdent(var, None)
+        self.block()
+
+    def parameters(self):
+        if self.tokenEsperadoEncontrado(tt.ID):
+            self.parameter()
+            self.consomeParameter()
+
+    def consomeParameter(self):
+        if self.tokenEsperadoEncontrado(tt.VIRG):
+            self.consome(tt.VIRG)
+            self.parameter()
+            self.consomeParameter()
+
+    def parameter(self):
+        var = self.salvaLexema()
+        self.consome(tt.ID)
+        self.consome(tt.PTOVIRG)
+        tipo = self.type()
+        self.consome(tt.TYPE)
+        if not self.tabsimb.existeIdent(var):
+            if tipo == 'int':
+                self.tabsimb.declaraIdent(var, 0)
+            elif tipo == 'float':
+                self.tabsimb.declaraIdent(var, 0.0)
+            else:
+                self.tabsimb.declaraIdent(var, None)
+
+    def block(self):
+        self.consome(tt.OPENCHAVE)
+        self.consomeVAR()
+        self.consomeStatament()
+        self.consome(tt.CLOSECHAVE)
+
+    def consomeVAR(self):
+        self.variable()
+        if self.tokenEsperadoEncontrado(tt.VAR):
+            self.consomeVAR()
+    def consomeStatament(self):
+        self.statement()
+        if not self.tokenEsperadoEncontrado(tt.CLOSECHAVE):
+            self.consomeStatament()
+
+    def statement(self):
+        if self.tokenEsperadoEncontrado(tt.IF):
+            self.consome(tt.IF)
+            self.exp()
+            self.block()
+            self.consomeElse()
+        elif self.tokenEsperadoEncontrado(tt.WHILE):
+            self.consome(tt.WHILE)
+            self.exp()
+            self.block()
+        elif self.tokenEsperadoEncontrado(tt.VAR):
+            var = self.var()
+            self.consome(tt.ATRIB)
+            valor = self.exp()
+            self.consome(tt.PTOVIRG)
+            if not self.tabsimb.existeIdent(var):
+                self.tabsimb.declaraIdent(var, valor)
+            else:
+                self.tabsimb.atribuiValor(var, valor)
+        elif self.tokenEsperadoEncontrado(tt.RETURN):
+            self.consomeExp()
+            self.consome(tt.PTOVIRG)
+        elif self.tokenEsperadoEncontrado(tt.ID):
+            var = self.salvaLexema()
+            linha = self.salvaLinha()
+            self.testaVarNaoDeclarada(var,linha)
+            self.consome(tt.ID)
+            if self.tokenEsperadoEncontrado(tt.ATRIB):
+                valor = self.exp()
+                self.tabsimb.atribuiValor(var,valor)
+            else:
+                self.call()
+            self.consome(tt.PTOVIRG)
+        elif self.tokenEsperadoEncontrado(tt.PRINT):
+            self.consome(tt.PRINT)
+            self.consome(tt.PTOVIRG)
         else:
-            self.A()
+            self.block()
 
-    def A(self):
-        self.consome( tt.IDENT )
-        self.consome( tt.ATRIB )
-        self.E()
-        self.consome( tt.PTOVIRG )
+    def pegaVarExistente(self):
+        var = self.salvaLexema()
+        linha = self.salvaLinha()
+        self.consome(tt.ID)
+        self.testaVarNaoDeclarada(var, linha)
+        valor = self.tabsimb.pegaValor(var)
+        return valor
 
-    def R(self):
-        self.consome( tt.READ )
-        self.consome( tt.OPENPAR )
-        self.consome( tt.IDENT )
-        self.consome( tt.CLOSEPAR )
-        self.consome( tt.PTOVIRG )
-
-    def P(self):
-        self.consome( tt.PRINT )
-        self.consome( tt.OPENPAR )
-        self.consome( tt.IDENT )
-        self.consome( tt.CLOSEPAR )
-        self.consome( tt.PTOVIRG )
-
-    def E(self):
-        self.M()
-        self.Rs()
-
-    def Rs(self):
-        if self.tokenEsperadoEncontrado( tt.ADD ):
-            self.consome( tt.ADD )
-            self.M()
-            self.Rs()
+    #var : ID | exp '[' exp ']' | exp '.' ID retona o valor de ID
+    def var(self):
+        if self.tokenEsperadoEncontrado(tt.ID):
+            return self.pegaVarExistente()
         else:
+            self.exp()
+            if self.tokenEsperadoEncontrado(tt.OPENCOCH):
+                self.consome(tt.OPENCOCH)
+                self.exp()
+                self.consome(tt.CLOSECOCH)
+            else:
+                self.consome(tt.PONTO)
+                var = self.salvaLexema()
+                linha = self.salvaLinha()
+                self.consome(tt.ID)
+                self.testaVarNaoDeclarada(var, linha)
+                valor = self.tabsimb.pegaValor(var)
+                return valor
+
+    def consomeElse(self):
+        if self.tokenEsperadoEncontrado(tt.ELSE):
+            self.consome(tt.ELSE)
+            self.block()
+            self.consomeElse()
+
+    def type(self):
+        if self.tokenEsperadoEncontrado( tt.ID ):
+            self.consome(tt.ID)
+        elif self.tokenEsperadoEncontrado(tt.TYPE):
+            return self.tokenAtual.lexema
+
+    def consomeExp(self):
+        if not self.tokenEsperadoEncontrado(tt.PTOVIRG):
+            return self.exp()
+
+    # <exp> -> <atrib> retona valor, 1 ,0
+    def exp(self):
+       return self.atrib()
+
+    # <atrib> -> <or> <restoAtrib> retorna valor
+    def atrib(self):
+        var = self.OR()
+        return self.restoAtrib(var)
+
+    def OR(self):
+        var = self.AND(1)
+        return self.restoOR(var)
+
+    def AND(self, val):
+        valor = self.NOT(val)
+        return self.restoAnd(valor)
+
+    def add(self):
+        val = self.mult()
+        return self.restoAdd(val)
+
+    def restoAdd(self, valor):
+        if self.tokenEsperadoEncontrado(tt.ADD):
+            self.consome(tt.ADD)
+            valor2 = self.mult()
+            return self.restoAdd(valor + valor2)
+        elif self.tokenEsperadoEncontrado(tt.SUB):
+            self.consome(tt.SUB)
+            valor2 = self.mult()
+            return  self.restoAdd(valor - valor2)
+        else: return valor
+
+    def restoOR(self, var):
+        if self.tokenEsperadoEncontrado(tt.OR):
+            self.consome(tt.OR)
+            var2 = self.AND(1)
+            var2 = self.restoOR(var2)
+            if (var + var2) > 0:
+                return 1
+            else:
+                return 0
+        else: return var
+
+
+    def restoAnd(self, val):
+        if self.tokenEsperadoEncontrado(tt.AND):
+            self.consome(tt.AND)
+            val2 = self.NOT(1)
+            return self.restoAnd(val2 * val)
+        else:
+            return val
+
+
+    #retona o valor negado, na qantidade de vezes correta, caso não encontre retona o valor inicial
+    def NOT(self, val):
+        if self.tokenEsperadoEncontrado(tt.NEGACAO):
+            self.consome(tt.NEGACAO)
+            if val == 1:
+                return self.NOT(0)
+            else: return self.NOT(1)
+        else: return self.rel()
+
+    def rel(self):
+        val2 = self.add()
+        return self.restoRel(val2)
+
+    def restoRel(self, val):
+        if self.tokenEsperadoEncontrado(tt.COMPARA):
+            self.consome(tt.COMPARA)
+            val2 = self.add()
+            if val == val2:
+                return 1
+            else: return 0
+        elif self.tokenEsperadoEncontrado(tt.DIFER):
+            self.consome(tt.DIFER)
+            val2 = self.add()
+            if val != val2:
+                return 1
+            else:
+                return 0
+        elif self.tokenEsperadoEncontrado(tt.MENORQ):
+            self.consome(tt.MENORQ)
+            val2 = self.add()
+            if val < val2:
+                return 1
+            else:
+                return 0
+        elif self.tokenEsperadoEncontrado(tt.MENORIQ):
+            self.consome(tt.MENORIQ)
+            val2 = self.add()
+            if val <= val2:
+                return 1
+            else:
+                return 0
+        elif self.tokenEsperadoEncontrado(tt.MAIORQ):
+            self.consome(tt.MAIORQ)
+            val2 = self.add()
+            if val > val2:
+                return 1
+            else:
+                return 0
+        elif self.tokenEsperadoEncontrado(tt.MAIORIQ):
+            self.consome(tt.MAIORIQ)
+            val2 = self.add()
+            if val >= val2:
+                return 1
+            else:
+                return 0
+        else: return val
+
+    #<mult> -> <uno> <restoMult> retorna valor
+    def mult(self):
+        val1 = self.uno(0)
+        return self.restoMult(val1)
+
+    # <restoMult> -> '*' <uno> <restoMult>
+    #             |  '/' <uno> <restoMult>
+    #             |  '%' <uno> <restoMult> | lambda
+    def restoMult(self, val):
+        if self.tokenEsperadoEncontrado(tt.MULT):
+            self.consome(tt.MULT)
+            val2 = self.uno(0)
+            return self.restoMult(val * val2)
+        elif self.tokenEsperadoEncontrado(tt.DIVI):
+            self.consome(tt.DIVI)
+            val2 = self.uno(0)
+            return self.restoMult(val / val2)
+        elif self.tokenEsperadoEncontrado(tt.PORCEN):
+            self.consome(tt.PORCEN)
+            val2 = self.uno(0)
+            return self.restoMult(val % val2)
+        else: return val
+
+    #<uno> -> '+' <uno> | '-' <uno> | <fator>
+    def uno(self, valor):
+        if self.tokenEsperadoEncontrado(tt.ADD):
+            self.consome(tt.ADD)
+            valor + self.uno(valor)
+            return valor
+        elif self.tokenEsperadoEncontrado(tt.SUB):
+            self.consome(tt.SUB)
+            valor - self.uno(valor)
+            return valor
+        else:
+            return self.fator()
+
+    #<fator> -> 'NUMint' | 'NUMfloat' | '(' <atrib> ')'
+    def fator(self):
+        if self.tokenEsperadoEncontrado(tt.OPENPAR):
+            self.consome(tt.OPENPAR)
+            valor = self.atrib()
+            self.consome(tt.CLOSEPAR)
+            return valor
+        elif self.tokenEsperadoEncontrado(tt.NUM):
+            num = self.salvaLexema()
+            self.consome(tt.NUM)
+            if num.find('.')>0 :
+                return float(num)
+            else:
+                return int(num)
+
+    def restoAtrib(self, val):
+        if self.tokenEsperadoEncontrado(tt.ATRIB):
+            self.consome(tt.ATRIB)
+            val2 = self.atrib()
+            self.tabsimb.atribuiValor(val, val2)
+            return val2
+        else: return val
+
+    #explist : [ exp { ',' exp } ]
+    def explist(self):
+        if self.tokenEsperadoEncontrado( tt.CLOSEPAR ):
             pass
-
-    def M(self):
-        self.Op()
-        self.Rm()
-
-    def Rm(self):
-        if self.tokenEsperadoEncontrado( tt.MULT ):
-            self.consome( tt.MULT )
-            self.Op()
-            self.Rm()
         else:
-            pass
+            self.exps()
 
-    def Op(self):
-        if self.tokenEsperadoEncontrado( tt.OPENPAR ):
-            self.consome( tt.OPENPAR )
-            self.E()
-            self.consome( tt.CLOSEPAR )
-        else:
-            self.consome( tt.NUM )
+    def exps(self):
+        self.exp()
+        if self.tokenEsperadoEncontrado(tt.VIRG):
+            self.consome(tt.VIRG)
+            self.exps()
+
+    #call : ID '(' explist ')'
+    def call(self):
+        val = self.salvaLexema()
+        linha = self.salvaLinha()
+        self.testaVarNaoDeclarada(val, linha)
+        self.consome(tt.ID)
+        self.consome(tt.OPENPAR)
+        self.explist()
+        self.consome(tt.CLOSEPAR)
 
 if __name__== "__main__":
 
-   nome = 'exemplo.toy'
+   nome = 'exemplo.monga'
    parser = Sintatico()
    parser.traduz(nome)
