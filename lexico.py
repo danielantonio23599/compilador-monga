@@ -73,6 +73,12 @@ class Lexico:
         # fila de caracteres 'deslidos' pelo ungetChar
         self.buffer = ''
 
+    def gravaArquivo(self):
+        self.arquivo = open(self.nomeArquivo, "w")
+        for palavra in self.reservadas:
+            self.arquivo.write(palavra+"\n")
+        self.arquivo.close()
+
     def abreArquivo(self):
         if not self.arquivo is None:
             print('ERRO: Arquivo ja aberto')

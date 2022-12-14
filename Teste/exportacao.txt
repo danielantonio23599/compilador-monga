@@ -1,0 +1,10 @@
+as
+ELSE
+IF
+new
+RETURN
+VAR
+int
+float
+FUNCTION
+WHILE
