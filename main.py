@@ -1,12 +1,12 @@
 from sintatico import Sintatico
 
 if __name__ == '__main__':
-    print('Tradutor Toy \n')
+    print('Tradutor MONGA \n')
 
     nome = input("Entre com o nome do arquivo: ")
 
     parser = Sintatico()
-    ok = parser.traduz(nome)
+    ok = parser.traduz('Teste/'+nome)
     if ok:
         print("Arquivo sintaticamente correto.")
 

@@ -11,13 +11,13 @@ class TipoToken:
     DOISPTO = (7, ':')
     OPENPAR = (8, '(')
     CLOSEPAR = (9, ')')
-    IF = (10, 'if')
-    ELSE = (11, 'else')
-    RETURN = (12, 'return')
-    FUNCTION = (13, 'function')
+    IF = (10, 'IF')
+    ELSE = (11, 'ELSE')
+    RETURN = (12, 'RETURN')
+    FUNCTION = (13, 'FUNCTION')
     TYPE = (14, 'type')
-    VAR = (15, 'var')
-    WHILE = (16, 'while')
+    VAR = (15, 'VAR')
+    WHILE = (16, 'WHILE')
     PRINT = (17, '@')
     CONVERT = (18, 'as')
     NEW = (19, 'new')
@@ -30,7 +30,7 @@ class TipoToken:
     DIVI = (26, '/')
     FLOAT = (27, 'float')
     COMPARA = (28, '==')
-    DIFER = (29, '~=')
+    DIFER = (29, '!=')
     MENORIQ = (30, '<=')
     MAIORIQ = (31, '>=')
     MENORQ = (32, '<')
@@ -56,15 +56,15 @@ class Token:
 class Lexico:
     # dicionario de palavras reservadas
     reservadas = {'as': TipoToken.CONVERT,
-                  'else': TipoToken.ELSE,
-                  'if': TipoToken.IF,
+                  'ELSE': TipoToken.ELSE,
+                  'IF': TipoToken.IF,
                   'new': TipoToken.NEW,
-                  'return': TipoToken.RETURN,
-                  'var': TipoToken.VAR,
+                  'RETURN': TipoToken.RETURN,
+                  'VAR': TipoToken.VAR,
                   'int': TipoToken.INT,
                   'float': TipoToken.FLOAT,
-                  'function': TipoToken.FUNCTION,
-                  'while': TipoToken.WHILE
+                  'FUNCTION': TipoToken.FUNCTION,
+                  'WHILE': TipoToken.WHILE
                   }
 
     def __init__(self, nomeArquivo):
@@ -130,7 +130,7 @@ class Lexico:
                 return lexema
 
     def getToken(self):
-        operadores = {'[', ']', '}', '{', ':', ';', '+', '*', '(', ')', ',', '=', '/', '-', '~', '!', '|', '@', '&', '<', '>', '?'}
+        operadores = {'[', ']', '}', '{', ':', '.', ';', '+', '*', '(', ')', ',', '=', '/', '-', '~', '!', '|', '@', '&', '<', '>', '?'}
         lexema = ''
         estado = 1
         car = None
@@ -194,6 +194,8 @@ class Lexico:
                     return Token(TipoToken.PTOVIRG, lexema, self.linha)
                 elif car == ':':
                     return Token(TipoToken.DOISPTO, lexema, self.linha)
+                elif car == '.':
+                    return Token(TipoToken.PONTO, lexema, self.linha)
                 elif car == '[':
                     return Token(TipoToken.OPENCOCH, lexema, self.linha)
                 elif car == ']':
@@ -219,7 +221,14 @@ class Lexico:
                 elif car == '@':
                     return Token(TipoToken.PRINT, lexema, self.linha)
                 elif car == '!':
-                    return Token(TipoToken.NEGACAO, lexema, self.linha)
+                    car = self.getChar()
+                    if car == '=': # verifica menor igual (!=)
+                        lexema = lexema + car
+                        return Token(TipoToken.DIFER, lexema, self.linha)
+                    elif car == ' ':
+                        return Token(TipoToken.NEGACAO, lexema, self.linha)
+                    else:
+                        return Token(TipoToken.ERROR, '<' + car + '>', self.linha)
                 elif car == ',':
                     return Token(TipoToken.VIRG, lexema, self.linha)
                 elif car == '<':
@@ -227,8 +236,7 @@ class Lexico:
                     if car == '=': # verifica menor igual (<=)
                         lexema = lexema + car
                         return Token(TipoToken.MENORIQ, lexema, self.linha)
-                    elif car is None:
-                        self.ungetChar(car)
+                    elif car == ' ':
                         return Token(TipoToken.MENORQ, lexema, self.linha)
                     else:
                         return Token(TipoToken.ERROR, '<' + car + '>', self.linha)
@@ -237,9 +245,8 @@ class Lexico:
                     if car == '=': # verifica maior igual (>=)
                         lexema = lexema + car
                         return Token(TipoToken.MAIORIQ, lexema, self.linha)
-                    elif car is None:
-                        self.ungetChar(car)
-                        return Token(TipoToken.MAIORQ, lexema)
+                    elif car == ' ':
+                        return Token(TipoToken.MAIORQ, lexema, self.linha)
                     else:
                         return Token(TipoToken.ERROR, '<' + car + '>', self.linha)
                 elif car == '~':
@@ -267,13 +274,14 @@ class Lexico:
                 # consumindo comentario
                 while (not car is None) and (car != '\n'):
                     car = self.getChar()
+                self.ungetChar(car)
                 estado = 1
 
 
 if __name__== "__main__":
 
    #nome = input("Entre com o nome do arquivo: ")
-   nome = 'exemplo.monga'
+   nome = 'Teste/array.monga'
    lex = Lexico(nome)
    lex.abreArquivo()
 

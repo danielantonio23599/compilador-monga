@@ -74,13 +74,15 @@ class Sintatico:
         return self.tokenAtual.linha
 
     def testaVarNaoDeclarada(self, var, linha):
-        if self.deuErro:
-            return
         if not self.tabsimb.existeIdent(var):
             self.deuErro = True
             msg = "Variavel " + var + " nao declarada."
             self.semantico.erroSemantico(msg, linha)
-            quit()
+    def testaIndiceTipoInt(self, linha, indice):
+        if not type(indice) == int:
+            self.deuErro = True
+            msg = "indice do vetor " + indice + " com TYPE diferente de int."
+            self.semantico.erroSemantico(msg, linha)
 
 
     ##################################################################
@@ -149,7 +151,7 @@ class Sintatico:
     def parameter(self):
         var = self.salvaLexema()
         self.consome(tt.ID)
-        self.consome(tt.PTOVIRG)
+        self.consome(tt.DOISPTO)
         tipo = self.type()
         self.consome(tt.TYPE)
         if not self.tabsimb.existeIdent(var):
@@ -167,12 +169,12 @@ class Sintatico:
         self.consome(tt.CLOSECHAVE)
 
     def consomeVAR(self):
-        self.variable()
         if self.tokenEsperadoEncontrado(tt.VAR):
+            self.variable()
             self.consomeVAR()
     def consomeStatament(self):
-        self.statement()
         if not self.tokenEsperadoEncontrado(tt.CLOSECHAVE):
+            self.statement()
             self.consomeStatament()
 
     def statement(self):
@@ -185,7 +187,47 @@ class Sintatico:
             self.consome(tt.WHILE)
             self.exp()
             self.block()
-        elif self.tokenEsperadoEncontrado(tt.VAR):
+        elif self.tokenEsperadoEncontrado(tt.RETURN):
+            self.consome(tt.RETURN)
+            self.consomeExp()
+            self.consome(tt.PTOVIRG)
+        elif self.tokenEsperadoEncontrado(tt.ID):
+            var = self.salvaLexema()
+            linha = self.salvaLinha()
+            self.consome(tt.ID)
+            if self.tokenEsperadoEncontrado(tt.OPENPAR):
+                self.call()
+            elif self.tokenEsperadoEncontrado(tt.ATRIB):
+                self.testaVarNaoDeclarada(var,linha)
+                valor = self.exp()
+                if not self.tabsimb.existeIdent(var):
+                    self.tabsimb.declaraIdent(var, valor)
+                else:
+                    self.tabsimb.atribuiValor(var, valor)
+            elif self.tokenEsperadoEncontrado(tt.OPENCOCH):
+                self.consome(tt.OPENCOCH)
+                var = self.exp()
+                self.testaIndiceTipoInt(linha,var)
+                self.consome(tt.CLOSECOCH)
+                self.consome(tt.ATRIB)
+                self.exp()
+            elif self.tokenEsperadoEncontrado(tt.PONTO):
+                self.consome(tt.PONTO)
+                var = self.salvaLexema()
+                linha = self.salvaLinha()
+                self.testaVarNaoDeclarada(var,linha)
+                self.consome(tt.ID)
+                self.consome(tt.ATRIB)
+                self.exp()
+            self.consome(tt.PTOVIRG)
+        elif self.tokenEsperadoEncontrado(tt.PRINT):
+            self.consome(tt.PRINT)
+            var = self.exp()
+            print(var)
+            self.consome(tt.PTOVIRG)
+        elif self.tokenEsperadoEncontrado(tt.OPENCHAVE):
+            self.block()
+        else:
             var = self.var()
             self.consome(tt.ATRIB)
             valor = self.exp()
@@ -194,25 +236,6 @@ class Sintatico:
                 self.tabsimb.declaraIdent(var, valor)
             else:
                 self.tabsimb.atribuiValor(var, valor)
-        elif self.tokenEsperadoEncontrado(tt.RETURN):
-            self.consomeExp()
-            self.consome(tt.PTOVIRG)
-        elif self.tokenEsperadoEncontrado(tt.ID):
-            var = self.salvaLexema()
-            linha = self.salvaLinha()
-            self.testaVarNaoDeclarada(var,linha)
-            self.consome(tt.ID)
-            if self.tokenEsperadoEncontrado(tt.ATRIB):
-                valor = self.exp()
-                self.tabsimb.atribuiValor(var,valor)
-            else:
-                self.call()
-            self.consome(tt.PTOVIRG)
-        elif self.tokenEsperadoEncontrado(tt.PRINT):
-            self.consome(tt.PRINT)
-            self.consome(tt.PTOVIRG)
-        else:
-            self.block()
 
     def pegaVarExistente(self):
         var = self.salvaLexema()
@@ -417,6 +440,9 @@ class Sintatico:
                 return float(num)
             else:
                 return int(num)
+        elif self.tokenEsperadoEncontrado(tt.ID):
+            return self.pegaVarExistente()
+
 
     def restoAtrib(self, val):
         if self.tokenEsperadoEncontrado(tt.ATRIB):
@@ -451,6 +477,6 @@ class Sintatico:
 
 if __name__== "__main__":
 
-   nome = 'exemplo.monga'
+   nome = 'Teste/exemplo.monga'
    parser = Sintatico()
    parser.traduz(nome)

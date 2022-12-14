@@ -1,0 +1,27 @@
+#Exemplos de arrays e records(structs)
+#Não existe declaraçao de arrays ou records na linguagem, apenas referenciações
+#Logo, aspectos semanticos aqui não são avaliados.
+
+FUNCTION main1() {
+    abc[1] = 1234;
+    abc.num = 1245;
+}
+
+FUNCTION main() {
+ VAR i : int;
+  i = 10.0;
+  WHILE i > 0 {
+        IF i > 5 {
+            @i;
+            i = i - 1;
+        }
+        ELSE {
+            IF i <= 1 {
+            @i;
+            }
+        }
+        IF i == 5 || i <= 3 && i >= 10 {
+            @i;
+        }
+  }
+}
