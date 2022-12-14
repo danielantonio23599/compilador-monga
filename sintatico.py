@@ -74,14 +74,34 @@ class Sintatico:
         return self.tokenAtual.linha
 
     def testaVarNaoDeclarada(self, var, linha):
+        if var == None:
+            return
         if not self.tabsimb.existeIdent(var):
             self.deuErro = True
             msg = "Variavel " + var + " nao declarada."
             self.semantico.erroSemantico(msg, linha)
     def testaIndiceTipoInt(self, linha, indice):
+        if indice == None:
+            return
         if not type(indice) == int:
             self.deuErro = True
             msg = "indice do vetor " + indice + " com TYPE diferente de int."
+            self.semantico.erroSemantico(msg, linha)
+
+    def verificaOperadorLogico(self,var, linha):
+        if var == None:
+            return
+        if not type(var) == int:
+            self.deuErro = True
+            msg = "operador logico " + str(var) + " com TYPE diferente de int."
+            self.semantico.erroSemantico(msg, linha)
+
+    def verificaRetornoCodicionais(self,var, linha):
+        if var == None:
+            return
+        if not type(var) == int:
+            self.deuErro = True
+            msg = "Retorno condicional " + str(var) + " com TYPE diferente de int."
             self.semantico.erroSemantico(msg, linha)
 
 
@@ -179,13 +199,17 @@ class Sintatico:
 
     def statement(self):
         if self.tokenEsperadoEncontrado(tt.IF):
+            linha = self.salvaLinha()
             self.consome(tt.IF)
-            self.exp()
+            var = self.exp()
+            self.verificaRetornoCodicionais(var, linha)
             self.block()
             self.consomeElse()
         elif self.tokenEsperadoEncontrado(tt.WHILE):
+            linha = self.salvaLinha()
             self.consome(tt.WHILE)
-            self.exp()
+            var = self.exp()
+            self.verificaRetornoCodicionais(var,linha)
             self.block()
         elif self.tokenEsperadoEncontrado(tt.RETURN):
             self.consome(tt.RETURN)
@@ -286,15 +310,21 @@ class Sintatico:
 
     # <atrib> -> <or> <restoAtrib> retorna valor
     def atrib(self):
+        linha = self.salvaLinha()
         var = self.OR()
+        self.verificaRetornoCodicionais(var,linha)
         return self.restoAtrib(var)
 
     def OR(self):
+        linha = self.salvaLinha()
         var = self.AND(1)
+        self.verificaRetornoCodicionais(var, linha)
         return self.restoOR(var)
 
     def AND(self, val):
+        linha = self.salvaLinha()
         valor = self.NOT(val)
+        self.verificaRetornoCodicionais(valor, linha)
         return self.restoAnd(valor)
 
     def add(self):
