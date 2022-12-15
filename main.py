@@ -1,5 +1,4 @@
 from sintatico import Sintatico
-from lexico import Lexico
 
 if __name__ == '__main__':
     print('Tradutor MONGA \n')
@@ -7,9 +6,13 @@ if __name__ == '__main__':
     nome = input("Entre com o nome do arquivo: ")
     pre = nome.split(' ')
     if pre[0] == '-t':
-        lexico = Lexico('Teste/'+pre[1])
-        lexico.gravaArquivo()
-        print('Tabela de palavras reservadas exportada com sucesso!')
+        parser = Sintatico()
+        ok = parser.traduz('Teste/' + pre[1])
+        if ok:
+            print("Arquivo sintaticamente correto.")
+        export = input("Entre com o nome do arquivo de exportacao: ")
+        parser.exportarTabSimbolos('Teste/'+export)
+        print('Tabela de simbolos exportada com sucesso!')
     else:
         parser = Sintatico()
         ok = parser.traduz('Teste/'+nome)

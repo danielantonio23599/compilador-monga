@@ -13,7 +13,7 @@ FUNCTION main(){
 
     #VAR variavel2asdasdawerafdagdwertasdadwdafqawfgfsrfgwersdfawdasda: float;
 
-    IF(12 > 5 || 13 < 4) {
+    IF(12.2 > 5 || 13 < 4) {
 
         variavel2 = 2.25;
         @2.25;

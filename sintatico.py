@@ -31,6 +31,12 @@ class Sintatico:
             self.lex.fechaArquivo()
             return not self.deuErro
 
+    def exportarTabSimbolos(self, nomeArquivo):
+        arquivo = open(nomeArquivo, "w")
+        arquivo.write(self.tabsimb.tabela.items().__str__())
+        arquivo.close()
+
+
     def tokenEsperadoEncontrado(self, token):
         (const, msg) = token
         if self.tokenAtual.const == const:
@@ -310,21 +316,15 @@ class Sintatico:
 
     # <atrib> -> <or> <restoAtrib> retorna valor
     def atrib(self):
-        linha = self.salvaLinha()
         var = self.OR()
-        self.verificaRetornoCodicionais(var,linha)
         return self.restoAtrib(var)
 
     def OR(self):
-        linha = self.salvaLinha()
         var = self.AND(1)
-        self.verificaRetornoCodicionais(var, linha)
         return self.restoOR(var)
 
     def AND(self, val):
-        linha = self.salvaLinha()
         valor = self.NOT(val)
-        self.verificaRetornoCodicionais(valor, linha)
         return self.restoAnd(valor)
 
     def add(self):
@@ -378,42 +378,66 @@ class Sintatico:
 
     def restoRel(self, val):
         if self.tokenEsperadoEncontrado(tt.COMPARA):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.COMPARA)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val == val2:
                 return 1
             else: return 0
         elif self.tokenEsperadoEncontrado(tt.DIFER):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.DIFER)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val != val2:
                 return 1
             else:
                 return 0
         elif self.tokenEsperadoEncontrado(tt.MENORQ):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.MENORQ)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val < val2:
                 return 1
             else:
                 return 0
         elif self.tokenEsperadoEncontrado(tt.MENORIQ):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.MENORIQ)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val <= val2:
                 return 1
             else:
                 return 0
         elif self.tokenEsperadoEncontrado(tt.MAIORQ):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.MAIORQ)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val > val2:
                 return 1
             else:
                 return 0
         elif self.tokenEsperadoEncontrado(tt.MAIORIQ):
+            l = self.salvaLinha()
+            self.verificaRetornoCodicionais(val, l)
             self.consome(tt.MAIORIQ)
+            linha = self.salvaLinha()
             val2 = self.add()
+            self.verificaRetornoCodicionais(val2,linha)
             if val >= val2:
                 return 1
             else:
@@ -507,6 +531,6 @@ class Sintatico:
 
 if __name__== "__main__":
 
-   nome = 'Teste/exemplo.monga'
+   nome = 'Teste/ifs.monga'
    parser = Sintatico()
    parser.traduz(nome)
